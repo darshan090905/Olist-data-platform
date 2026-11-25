@@ -84,5 +84,14 @@ services:
       airflow-init:
         condition: service_completed_successfully
 
+  metabase:
+    image: metabase/metabase
+    container_name: olist-metabase
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   pgdata:

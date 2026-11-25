@@ -36,3 +36,6 @@ An end-to-end batch ETL and data warehouse pipeline built on the **Olist Brazili
 
 ### 3. Automated Data Quality Checks & Pytest
 ![Quality Checks](docs/quality_checks.png)
+
+### 4. Metabase Sales Overview Dashboard
+![Olist Sales Overview](docs/metabase_dashboard.png)
