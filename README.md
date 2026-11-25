@@ -39,3 +39,9 @@ An end-to-end batch ETL and data warehouse pipeline built on the **Olist Brazili
 
 ### 4. Metabase Sales Overview Dashboard
 ![Olist Sales Overview](docs/metabase_dashboard.png)
+
+### 5. MinIO Raw Data Lake Layer (`s3://raw`)
+Added S3-compatible object storage via MinIO (`http://localhost:9001`) as the landing zone for all 9 raw Olist CSV datasets (`extract_to_minio` task), from which `load_staging` ingests into PostgreSQL.
+
+![MinIO Raw Bucket](docs/minio_raw_bucket.png)
+![Airflow 5-Task DAG](docs/airflow_minio_dag.png)

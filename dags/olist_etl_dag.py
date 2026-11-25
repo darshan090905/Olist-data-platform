@@ -10,6 +10,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.config import WAREHOUSE_URL  # noqa: E402
+from src.extract import upload_raw  # noqa: E402
 from src.load_staging import load_staging  # noqa: E402
 from src.quality_checks import run_quality_checks  # noqa: E402
 
@@ -37,6 +38,11 @@ with DAG(
     catchup=False,
     tags=["olist", "etl", "warehouse"],
 ) as dag:
+    extract_raw = PythonOperator(
+        task_id="extract_to_minio",
+        python_callable=upload_raw,
+    )
+
     t_staging = PythonOperator(
         task_id="load_staging",
         python_callable=load_staging,
@@ -59,4 +65,4 @@ with DAG(
         python_callable=run_quality_checks,
     )
 
-    t_staging >> t_dims >> t_fact >> t_dq
+    extract_raw >> t_staging >> t_dims >> t_fact >> t_dq

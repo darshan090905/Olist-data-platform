@@ -16,6 +16,19 @@ services:
       timeout: 5s
       retries: 10
 
+  minio:
+    image: pgsty/minio
+    container_name: olist-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - miniodata:/data
+
   airflow-init:
     image: apache/airflow:2.9.3
     container_name: olist-airflow-init
@@ -41,7 +54,13 @@ services:
     command:
       - -c
       - |
-        exec gunicorn airflow.www.app:cached_app\(\)           --workers 2           --worker-class sync           --timeout 300           --graceful-timeout 120           --bind 0.0.0.0:8080
+        pip install --no-cache-dir boto3 &&
+        exec gunicorn airflow.www.app:cached_app\(\) \
+          --workers 2 \
+          --worker-class sync \
+          --timeout 300 \
+          --graceful-timeout 120 \
+          --bind 0.0.0.0:8080
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://dwh:dwh@postgres:5432/olist
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -51,6 +70,9 @@ services:
       WAREHOUSE_URL: postgresql+psycopg2://dwh:dwh@postgres:5432/olist
       RAW_DATA_DIR: /opt/airflow/data/raw
       PYTHONPATH: /opt/airflow
+      S3_ENDPOINT: http://minio:9000
+      S3_KEY: minio
+      S3_SECRET: minio12345
     ports:
       - "8080:8080"
     volumes:
@@ -61,11 +83,18 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+      minio:
+        condition: service_started
 
   airflow-scheduler:
     image: apache/airflow:2.9.3
     container_name: olist-airflow-scheduler
-    command: scheduler
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        pip install --no-cache-dir boto3 &&
+        exec airflow scheduler
     environment:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://dwh:dwh@postgres:5432/olist
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -75,6 +104,9 @@ services:
       WAREHOUSE_URL: postgresql+psycopg2://dwh:dwh@postgres:5432/olist
       RAW_DATA_DIR: /opt/airflow/data/raw
       PYTHONPATH: /opt/airflow
+      S3_ENDPOINT: http://minio:9000
+      S3_KEY: minio
+      S3_SECRET: minio12345
     volumes:
       - ./dags:/opt/airflow/dags
       - ./src:/opt/airflow/src
@@ -83,6 +115,8 @@ services:
     depends_on:
       airflow-init:
         condition: service_completed_successfully
+      minio:
+        condition: service_started
 
   metabase:
     image: metabase/metabase
@@ -95,3 +129,4 @@ services:
 
 volumes:
   pgdata:
+  miniodata:

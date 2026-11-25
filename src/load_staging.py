@@ -1,7 +1,8 @@
-from pathlib import Path
+import os
+import boto3
 import pandas as pd
 from sqlalchemy import create_engine, text
-from src.config import RAW_DATA_DIR, WAREHOUSE_URL
+from src.config import WAREHOUSE_URL
 
 FILE_TO_TABLE = {
     "olist_customers_dataset.csv": "stg_customers",
@@ -16,18 +17,24 @@ FILE_TO_TABLE = {
 }
 
 
+def get_s3_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=os.environ.get("S3_ENDPOINT", "http://localhost:9000"),
+        aws_access_key_id=os.environ.get("S3_KEY", "minio"),
+        aws_secret_access_key=os.environ.get("S3_SECRET", "minio12345"),
+    )
+
+
 def load_staging() -> dict[str, int]:
     engine = create_engine(WAREHOUSE_URL)
-    raw_path = Path(RAW_DATA_DIR)
+    s3 = get_s3_client()
     row_counts: dict[str, int] = {}
 
     with engine.begin() as conn:
         for filename, table_name in FILE_TO_TABLE.items():
-            csv_file = raw_path / filename
-            if not csv_file.exists():
-                raise FileNotFoundError(f"Missing raw CSV: {csv_file}")
-
-            df = pd.read_csv(csv_file)
+            obj = s3.get_object(Bucket="raw", Key=filename)
+            df = pd.read_csv(obj["Body"])
             conn.execute(text(f"DROP TABLE IF EXISTS {table_name} CASCADE"))
             df.to_sql(
                 name=table_name,
@@ -38,7 +45,7 @@ def load_staging() -> dict[str, int]:
                 method="multi",
             )
             row_counts[table_name] = len(df)
-            print(f"Loaded {len(df):,} rows into {table_name}")
+            print(f"Loaded {len(df):,} rows from s3://raw/{filename} into {table_name}")
 
     return row_counts
 
